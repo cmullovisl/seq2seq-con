@@ -405,7 +405,10 @@ def _build_field_vocab(field, counter, size_multiple=1, emb_file=None, base_fiel
             if word not in field.vocab.stoi:
                 word_vectors[field.vocab.stoi[field.unk_token]] += vec #add all the remaining words which weren't added to the vocabulary to UNK vector
 
-        temp = word_vectors[field.vocab.stoi[field.unk_token]] / unk_count # average
+        if unk_count != 0:
+            temp = word_vectors[field.vocab.stoi[field.unk_token]] / unk_count # average
+        else:
+            temp = torch.randn(emb_dim)
         word_vectors[field.vocab.stoi[field.unk_token]] = temp / (np.linalg.norm(temp) + eps) #normalize
         word_vectors = torch.Tensor(np.stack(word_vectors, axis=0))
         field.vocab.set_vectors(stoi, word_vectors, dim=word_vectors.size(1))  
