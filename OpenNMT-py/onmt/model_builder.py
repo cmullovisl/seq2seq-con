@@ -172,9 +172,17 @@ def load_test_model(opt, model_path=None):
         vocab_old = checkpoint['vocab']
         vocab = torch.load(opt.new_vocab)
 
-        print(dict(vocab_old)["tgt"].fields[1][1].vocab.itos)
-        print(dict(vocab)["tgt"].fields[1][1].vocab.itos)
+        # print(dict(vocab_old)["tgt"].fields[1][1].vocab.itos)
+        # print(dict(vocab)["tgt"].fields[1][1].vocab.itos)
         # compare_vocab(vocab, vocab_old)
+
+        if model_opt.share_decoder_embeddings:
+            del checkpoint['model']['decoder.embeddings.make_embedding.emb_luts.0.0.weight']
+        if vocab['src'].base_field.vocab.vectors is not None:
+            checkpoint['model']['encoder.embeddings.make_embedding.emb_luts.0.0.weight'] = vocab['src'].base_field.vocab.vectors
+
+        if model_opt.share_embeddings:
+            model_opt.share_embeddings = False
     else:
         vocab = checkpoint['vocab']
     if inputters.old_style_vocab(vocab):
