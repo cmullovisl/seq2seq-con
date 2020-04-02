@@ -100,7 +100,7 @@ def build_decoder(opt, embeddings):
     return str2dec[dec_type].from_opt(opt, embeddings)
 
 
-def build_generator(opt, fields, output_vec_dim=-1):
+def build_generator(model, opt, fields, output_vec_dim=-1):
     # Build Generator.
     if not opt.copy_attn:
         if opt.generator_function == 'continuous-linear':
@@ -127,7 +127,7 @@ def build_generator(opt, fields, output_vec_dim=-1):
                 gen_func
             )
             if opt.share_decoder_embeddings:
-                generator[0].weight = decoder.embeddings.word_lut.weight
+                generator[0].weight = model.decoder.embeddings.word_lut.weight
     else:
         tgt_base_field = fields["tgt"].base_field
         vocab_size = len(tgt_base_field.vocab)
@@ -242,8 +242,8 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     # Share the embedding matrix - preprocess with share_vocab required.
     if model_opt.share_embeddings:
         # src/tgt vocab should be the same if `-share_vocab` is specified.
-        assert src_field.base_field.vocab == tgt_field.base_field.vocab, \
-            "preprocess with -share_vocab if you use share_embeddings"
+        # assert src_field.base_field.vocab == tgt_field.base_field.vocab, \
+        #     "preprocess with -share_vocab if you use share_embeddings"
 
         tgt_emb.word_lut.weight = src_emb.word_lut.weight
 
@@ -273,7 +273,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     model = onmt.models.NMTModel(encoder, decoder)
 
     # Generator
-    generator, mtl_generator = build_generator(model_opt, fields, output_vec_dim=output_vec_dim)
+    generator, mtl_generator = build_generator(model, model_opt, fields, output_vec_dim=output_vec_dim)
 
     # Load the model states from checkpoint or initialize them.
     if checkpoint is not None:
