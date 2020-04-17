@@ -237,6 +237,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     # Build embeddings.
     if model_opt.model_type == "text" or model_opt.model_type == "vec":
         src_field = fields["src"]
+        src_field.base_field.vocab.stoi.default_factory = lambda: src_field.base_field.vocab.unk_index
         src_emb = build_embeddings(model_opt, src_field)
     else:
         src_emb = None
@@ -246,6 +247,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
 
     # Build decoder.
     tgt_field = fields["tgt"]
+    tgt_field.base_field.vocab.stoi.default_factory = lambda: tgt_field.base_field.vocab.unk_index
     tgt_emb = build_embeddings(model_opt, tgt_field, for_encoder=False)
 
     # Share the embedding matrix - preprocess with share_vocab required.
