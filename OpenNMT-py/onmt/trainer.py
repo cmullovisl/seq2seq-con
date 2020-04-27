@@ -70,7 +70,9 @@ def build_trainer(opt, device_id, model, fields, optim, model_saver=None):
                            model_dtype=opt.model_dtype,
                            earlystopper=earlystopper,
                            dropout=dropout,
-                           dropout_steps=dropout_steps, use_feat_emb=opt.use_feat_emb)
+                           dropout_steps=dropout_steps,
+                           use_feat_emb=opt.use_feat_emb,
+                           sync_output_embeddings=opt.sync_output_embeddings)
     return trainer
 
 
@@ -107,7 +109,8 @@ class Trainer(object):
                  n_gpu=1, gpu_rank=1, gpu_verbose_level=0,
                  report_manager=None, with_align=False, model_saver=None,
                  average_decay=0, average_every=1, model_dtype='fp32',
-                 earlystopper=None, dropout=[0.3], dropout_steps=[0], use_feat_emb=False):
+                 earlystopper=None, dropout=[0.3], dropout_steps=[0],
+                 use_feat_emb=False, sync_output_embeddings=False):
         # Basic attributes.
         self.model = model
         self.train_loss = train_loss
@@ -133,6 +136,7 @@ class Trainer(object):
         self.dropout = dropout
         self.dropout_steps = dropout_steps
         self.use_feat_emb = use_feat_emb
+        self.sync_output_embeddings = sync_output_embeddings
 
         for i in range(len(self.accum_count_l)):
             assert self.accum_count_l[i] > 0
@@ -401,6 +405,8 @@ class Trainer(object):
                         onmt.utils.distributed.all_reduce_and_rescale_tensors(
                             grads, float(1))
                     self.optim.step()
+                    if self.sync_output_embeddings:
+                        self.model.decoder.tgt_out_emb.weight.data.copy_(self.model.decoder.embeddings.word_lut.weight)
 
                 # If truncated, don't backprop fully.
                 # TO CHECK
@@ -419,6 +425,8 @@ class Trainer(object):
                 onmt.utils.distributed.all_reduce_and_rescale_tensors(
                     grads, float(1))
             self.optim.step()
+            if self.sync_output_embeddings:
+                self.model.decoder.tgt_out_emb.weight.data.copy_(self.model.decoder.embeddings.word_lut.weight)
 
     def _start_report_manager(self, start_time=None):
         """

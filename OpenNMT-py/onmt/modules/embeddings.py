@@ -266,10 +266,10 @@ class Embeddings(nn.Module):
             else:
                 self.word_lut.weight.data.copy_(pretrained)
     
-    def tie_embeddings(self, tgt_out_vec):
+    def tie_embeddings(self, tgt_out_vec, train=False):
         #tie the embeddings with the output vectors and freeze them
         self.word_lut.weight.data.copy_(tgt_out_vec.data)
-        self.word_lut.weight.requires_grad = False  
+        self.word_lut.weight.requires_grad = train
 
     def forward(self, source, step=None):
         """Computes the embeddings for words and features.

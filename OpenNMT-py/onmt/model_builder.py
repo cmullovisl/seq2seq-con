@@ -343,7 +343,8 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     if "continuous" in model_opt.generator_function:
         model.decoder.tgt_out_emb = tgt_out_emb
         if model_opt.share_decoder_embeddings:
-            model.decoder.embeddings.tie_embeddings(tgt_out_emb.weight)
+            model.decoder.embeddings.tie_embeddings(tgt_out_emb.weight,
+                model_opt.sync_output_embeddings)
 
     model.to(device)
     if model_opt.model_dtype == 'fp16' and model_opt.optim == 'fusedadam':

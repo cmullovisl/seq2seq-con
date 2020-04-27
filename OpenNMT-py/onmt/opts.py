@@ -221,6 +221,12 @@ def model_opts(parser):
               choices=["O0", "O1", "O2", "O3"],
               help="For FP16 training, the opt_level to use."
                    "See https://nvidia.github.io/apex/amp.html#opt-levels.")
+    group.add('--sync_output_embeddings', '-sync_output_embeddings',
+              action="store_true",
+              help="Set output embedding `requires_grad` to `False`, but"
+                   "synchronize embedding weights with decoder embeddings"
+                   "after each optimizer step. Requires continuous output"
+                   "generator function.")
 
 
 def preprocess_opts(parser):
