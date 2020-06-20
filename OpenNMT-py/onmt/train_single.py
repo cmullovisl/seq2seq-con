@@ -66,6 +66,7 @@ def main(opt, device_id, batch_queue=None, semaphore=None):
             model_opt.train_steps = opt.train_steps
             model_opt.train_only_sec_task = opt.train_only_sec_task
             model_opt.multi_task = opt.multi_task
+            model_opt.sync_output_embeddings = opt.sync_output_embeddings
         
         if opt.train_only_sec_task:
             vocab = torch.load(opt.data + '.vocab.pt')
