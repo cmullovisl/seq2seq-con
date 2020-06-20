@@ -563,6 +563,8 @@ def train_opts(parser):
               help="Step for moving average. "
                    "Default is every update, "
                    "if -average_decay is set.")
+    group.add('--denoise', '-denoise', action='store_true',
+              help="Add noise to encoder input for denoising autoencoder.")
 
     # learning rate
     group = parser.add_argument_group('Optimization- Rate')

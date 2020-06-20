@@ -72,7 +72,8 @@ def build_trainer(opt, device_id, model, fields, optim, model_saver=None):
                            dropout=dropout,
                            dropout_steps=dropout_steps,
                            use_feat_emb=opt.use_feat_emb,
-                           sync_output_embeddings=opt.sync_output_embeddings)
+                           sync_output_embeddings=opt.sync_output_embeddings,
+                           denoise=opt.denoise)
     return trainer
 
 
@@ -110,7 +111,8 @@ class Trainer(object):
                  report_manager=None, with_align=False, model_saver=None,
                  average_decay=0, average_every=1, model_dtype='fp32',
                  earlystopper=None, dropout=[0.3], dropout_steps=[0],
-                 use_feat_emb=False, sync_output_embeddings=False):
+                 use_feat_emb=False, sync_output_embeddings=False,
+                 denoise=False):
         # Basic attributes.
         self.model = model
         self.train_loss = train_loss
@@ -137,6 +139,8 @@ class Trainer(object):
         self.dropout_steps = dropout_steps
         self.use_feat_emb = use_feat_emb
         self.sync_output_embeddings = sync_output_embeddings
+        self.denoise = denoise
+        self.params_word_shuffle = 3
 
         for i in range(len(self.accum_count_l)):
             assert self.accum_count_l[i] > 0
@@ -290,6 +294,37 @@ class Trainer(object):
             self.model_saver.save(step, moving_average=self.moving_average)
         return total_stats
 
+    def word_shuffle(self, x, l):
+        """
+        Randomly shuffle input words.
+        """
+        if self.params_word_shuffle == 0:
+            return x, l
+
+        # define noise word scores
+        #noise = np.random.uniform(0, self.params_word_shuffle, size=(x.size(0) - 1, x.size(1)))
+        noise = self.params_word_shuffle * torch.rand(x.size(0) - 1, x.size(1), device=x.device)
+        noise[0] = -1  # do not move start sentence symbol
+
+        assert self.params_word_shuffle > 1
+        x2 = x.clone()
+        for i in range(l.size(0)):
+            # generate a random permutation
+            #scores = np.arange(l.cpu()[i] - 1) + noise[:l.cpu()[i] - 1, i]
+            scores = torch.arange(l[i] - 1, device=x.device) + noise[:l[i] - 1, i]
+            permutation = scores.argsort()
+            # shuffle words
+            #x2[:l[i] - 1, i].copy_(x2[:l[i] - 1, i][torch.from_numpy(permutation).cuda()])
+            x2[:l[i] - 1, i].copy_(x2[:l[i] - 1, i][permutation])
+        return x2, l
+
+    def add_noise(self, words, lengths):
+        """
+        Add noise to the encoder input.
+        """
+        words, lengths = self.word_shuffle(words, lengths)
+        return words, lengths
+
     def validate(self, valid_iter, moving_average=None):
         """ Validate model.
             valid_iter: validate data iterator
@@ -316,6 +351,9 @@ class Trainer(object):
             for batch in valid_iter:
                 src, src_lengths = batch.src if isinstance(batch.src, tuple) \
                                    else (batch.src, None)
+                if self.denoise:
+                    src, src_lengths = self.add_noise(src, src_lengths)
+
                 tgt = batch.tgt
                 if not self.use_feat_emb:
                     tgt = tgt[:, :, :1]
@@ -354,6 +392,10 @@ class Trainer(object):
 
             src, src_lengths = batch.src if isinstance(batch.src, tuple) \
                 else (batch.src, None)
+
+            if self.denoise:
+                src, src_lengths = self.add_noise(src, src_lengths)
+
             if src_lengths is not None:
                 report_stats.n_src_words += src_lengths.sum().item()
 
