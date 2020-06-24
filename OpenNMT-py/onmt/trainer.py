@@ -10,6 +10,7 @@
 """
 
 import torch
+import numpy as np
 import traceback
 
 import onmt.utils
@@ -141,6 +142,7 @@ class Trainer(object):
         self.sync_output_embeddings = sync_output_embeddings
         self.denoise = denoise
         self.params_word_shuffle = 3
+        self.params_word_dropout = 0
 
         for i in range(len(self.accum_count_l)):
             assert self.accum_count_l[i] > 0
@@ -318,11 +320,108 @@ class Trainer(object):
             x2[:l[i] - 1, i].copy_(x2[:l[i] - 1, i][permutation])
         return x2, l
 
+    def word_dropout(self, x, l):
+        """
+        Randomly drop input words.
+        """
+        if self.params_word_dropout == 0:
+            return x, l
+        assert 0 < self.params_word_dropout < 1
+
+        # define words to drop
+        ##eos = self.params.eos_index
+        ##bos = self.model.fields['src'].base_field.vocab.stoi['<s>']
+        ##eos = self.model.fields['src'].base_field.vocab.stoi['</s>']
+        ##bos = 2
+        ##eos = 3
+        ##assert (x[0] == bos).sum() == l.size(0)
+        #keep = np.random.rand(x.size(0) - 1, x.size(1)) >= self.params_word_dropout
+        #keep[0] = 1  # do not drop the start sentence symbol
+
+        #sentences = []
+        #lengths = []
+        #for i in range(l.size(0)):
+        #    #assert x[l[i] - 1, i] == eos
+        #    words = x[:l[i] - 1, i].tolist()
+        #    # randomly drop words from the input
+        #    new_s = [w for j, w in enumerate(words) if keep[j, i]]
+        #    # we need to have at least one word in the sentence (more than the start / end sentence symbols)
+        #    if len(new_s) == 1:
+        #        new_s.append(words[np.random.randint(1, len(words))])
+        #    #new_s.append(eos)
+        #    #assert len(new_s) >= 3 and new_s[0] == bos and new_s[-1] == eos
+        #    #assert len(new_s) >= 3 and new_s[-1] == eos
+        #    assert len(new_s) >= 2
+        #    sentences.append(new_s)
+        #    lengths.append(len(new_s))
+        ## re-construct input
+        #l2 = torch.LongTensor(lengths)
+        #x2 = torch.LongTensor(l2.max(), l2.size(0)).fill_(self.train_loss.padding_idx)
+        #for i in range(l2.size(0)):
+        #    print(torch.LongTensor(sentences[i]).shape)
+        #    print(x2[:l2[i], i].shape)
+        #    x2[:l2[i], i].copy_(torch.LongTensor(sentences[i]).squeeze())
+        #print(x2.shape)
+        #print(l2)
+        #return x2, l2
+        keep = np.random.rand(x.size(0), x.size(1)) >= self.params_word_dropout
+        keep[0] = 1  # do not drop the start sentence symbol
+
+        sentences = []
+        lengths = []
+        for i in range(l.size(0)):
+            words = x[:l[i], i].squeeze().tolist()
+            # randomly drop words from the input
+            new_s = [w for j, w in enumerate(words) if keep[j, i]]
+            # we need to have at least one word in the sentence (more than the start / end sentence symbols)
+            if len(new_s) == 1:
+                new_s.append(words[np.random.randint(1, len(words))])
+            assert len(new_s) >= 2
+            sentences.append(new_s)
+            lengths.append(len(new_s))
+        # re-construct input
+        l2 = torch.LongTensor(lengths).to(x.device)
+        x2 = torch.LongTensor(l2.max(), l2.size(0)).to(x.device).fill_(self.train_loss.padding_idx)
+        for i in range(l2.size(0)):
+            x2[:l2[i], i].copy_(torch.LongTensor(sentences[i]).to(x.device))
+        return x2.unsqueeze(2), l2
+
+    def word_blank(self, x, l):
+        """
+        Randomly blank input words.
+        """
+        if self.params.word_blank == 0:
+            return x, l
+        assert 0 < self.params.word_blank < 1
+
+        # define words to blank
+        eos = self.params.eos_index
+        assert (x[0] == eos).sum() == l.size(0)
+        keep = np.random.rand(x.size(0) - 1, x.size(1)) >= self.params.word_blank
+        keep[0] = 1  # do not blank the start sentence symbol
+
+        sentences = []
+        for i in range(l.size(0)):
+            assert x[l[i] - 1, i] == eos
+            words = x[:l[i] - 1, i].tolist()
+            # randomly blank words from the input
+            new_s = [w if keep[j, i] else self.params.mask_index for j, w in enumerate(words)]
+            new_s.append(eos)
+            assert len(new_s) == l[i] and new_s[0] == eos and new_s[-1] == eos
+            sentences.append(new_s)
+        # re-construct input
+        x2 = torch.LongTensor(l.max(), l.size(0)).fill_(self.params.pad_index)
+        for i in range(l.size(0)):
+            x2[:l[i], i].copy_(torch.LongTensor(sentences[i]))
+        return x2, l
+
     def add_noise(self, words, lengths):
         """
         Add noise to the encoder input.
         """
         words, lengths = self.word_shuffle(words, lengths)
+        words, lengths = self.word_dropout(words, lengths)
+        #words, lengths = self.word_blank(words, lengths)
         return words, lengths
 
     def validate(self, valid_iter, moving_average=None):
