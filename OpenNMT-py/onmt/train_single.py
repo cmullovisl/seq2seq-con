@@ -71,6 +71,26 @@ def main(opt, device_id, batch_queue=None, semaphore=None):
         
         if opt.train_only_sec_task:
             vocab = torch.load(opt.data + '.vocab.pt')
+        elif opt.new_vocab is not None:
+            vocab_old = checkpoint['vocab']
+            vocab = torch.load(opt.new_vocab)
+
+            tgt_vecs = vocab['tgt'].base_field.vocab.vectors
+            src_vecs = vocab['src'].base_field.vocab.vectors
+            embedding_key = '{}.embeddings.make_embedding.emb_luts.0.0.weight'
+            if model_opt.share_decoder_embeddings:
+                checkpoint['model'][embedding_key.format('decoder')] = tgt_vecs
+
+            if src_vecs is not None:
+                checkpoint['model'][embedding_key.format('encoder')] = src_vecs
+
+            if "continuous" not in model_opt.generator_function:
+                checkpoint['generator']['0.weight'] = tgt_vecs
+                # TODO set to 0?
+                del checkpoint['generator']['0.bias']
+
+            if model_opt.share_embeddings:
+                model_opt.share_embeddings = False
         else:
             vocab = checkpoint['vocab']
 

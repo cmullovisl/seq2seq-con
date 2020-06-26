@@ -391,6 +391,9 @@ def train_opts(parser):
               help="""Save a checkpoint every X steps""")
     group.add('--keep_checkpoint', '-keep_checkpoint', type=int, default=-1,
               help="Keep X checkpoints (negative: keep all)")
+    group.add('--new_vocab', '-new_vocab', dest='new_vocab',
+              type=str, default=None,
+              help="Path to a new (optional) vocab .pt file. ")
 
     # GPU
     group.add('--gpuid', '-gpuid', default=[], nargs='*', type=int,
