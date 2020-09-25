@@ -87,6 +87,7 @@ def main(opt, device_id, batch_queue=None, semaphore=None):
             if "continuous" not in model_opt.generator_function:
                 checkpoint['generator']['0.weight'] = tgt_vecs
                 # TODO set to 0?
+                # XXX keep consistent with code in `model_builder.py:load_test_model`
                 del checkpoint['generator']['0.bias']
 
             if model_opt.share_embeddings:

@@ -786,6 +786,8 @@ def translate_opts(parser):
                    "is sents. Tokens will do dynamic batching")
     group.add('--gpu', '-gpu', type=int, default=-1,
               help="Device to run on")
+    group.add('--langcode', '-langcode', type=str,
+              help="Language code for the target language")
 
     # Options most relevant to speech.
     group = parser.add_argument_group('Speech')

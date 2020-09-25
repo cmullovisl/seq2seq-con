@@ -142,7 +142,7 @@ class Trainer(object):
         self.sync_output_embeddings = sync_output_embeddings
         self.denoise = denoise
         self.params_word_shuffle = 3
-        self.params_word_dropout = 0
+        self.params_word_dropout = 0.1
 
         for i in range(len(self.accum_count_l)):
             assert self.accum_count_l[i] > 0

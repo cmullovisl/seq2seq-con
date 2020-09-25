@@ -187,8 +187,26 @@ def load_test_model(opt, model_path=None):
 
         if "continuous" not in model_opt.generator_function:
             checkpoint['generator']['0.weight'] = tgt_vecs
-            # TODO set to 0?
-            del checkpoint['generator']['0.bias']
+
+            # handle bias: 3 variants
+            old_bias = checkpoint['generator']['0.bias']
+            # variant 1: zero-bias except for specials
+            #N_SPECIALS = 4
+            #special_bias = old_bias[:N_SPECIALS]
+            #new_bias = torch.zeros(len(tgt_vecs))
+            #new_bias[:N_SPECIALS] += special_bias
+            #checkpoint['generator']['0.bias'] = new_bias
+
+            # variant 2: delete bias
+            #del checkpoint['generator']['0.bias']
+
+            # variant 3: isolate bias relevant to current language
+            lang_prefix = opt.langcode + '@'
+            bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix) or '@' not in s]
+            #bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix)]
+            #bias_idxs = [0,1,2,3] + bias_idxs
+            new_bias = old_bias[bias_idxs]
+            checkpoint['generator']['0.bias'] = new_bias
 
         if model_opt.share_embeddings:
             model_opt.share_embeddings = False
@@ -257,6 +275,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
         #     "preprocess with -share_vocab if you use share_embeddings"
 
         tgt_emb.word_lut.weight = src_emb.word_lut.weight
+        src_emb.word_lut.weight.requires_grad = False
 
     decoder = build_decoder(model_opt, tgt_emb)
 
