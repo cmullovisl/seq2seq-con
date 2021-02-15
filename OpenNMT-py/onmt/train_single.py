@@ -94,6 +94,7 @@ def main(opt, device_id, batch_queue=None, semaphore=None):
                 model_opt.share_embeddings = False
         else:
             vocab = checkpoint['vocab']
+        del checkpoint['generator']['0.bias']
 
     else:
         checkpoint = None
@@ -133,6 +134,11 @@ def main(opt, device_id, batch_queue=None, semaphore=None):
             if "mtl_generator" not in name:
                 p.requires_grad = False
         opt.reset_optim=True
+
+    #for param in model.encoder.parameters():
+    #    param.requires_grad = False
+    #for param in model.decoder.parameters():
+    #    param.requires_grad = False
     
     optim = Optimizer.from_opt(model, opt, checkpoint=checkpoint)
 

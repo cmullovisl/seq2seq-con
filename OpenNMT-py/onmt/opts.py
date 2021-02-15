@@ -640,6 +640,9 @@ def translate_opts(parser):
     group.add('--new_vocab', '-new_vocab', dest='new_vocab',
               type=str, default=None,
               help="Path to a new (optional) vocab .pt file. ")
+    group.add('--use_lang', '-use_lang', type=str, default=None,
+              help="Single language to isolate from multilingual "
+                   "vocabulary.")
     group.add('--multi_task', '-multi_task', action='store_true',
               help='Use the POS predictions to filter embedding tables')
     group.add('--usenew', '-usenew', action='store_true',

@@ -10,6 +10,7 @@ from torch.nn.init import xavier_uniform_
 import onmt.inputters as inputters
 import onmt.modules
 from onmt.encoders import str2enc
+from torchtext.vocab import Vocab
 
 from onmt.decoders import str2dec
 
@@ -168,9 +169,32 @@ def load_test_model(opt, model_path=None):
     model_opt = ArgumentParser.ckpt_model_opts(checkpoint['opt'])
     ArgumentParser.update_model_opts(model_opt)
     ArgumentParser.validate_model_opts(model_opt)
-    if opt.new_vocab is not None:
-        vocab_old = checkpoint['vocab']
-        vocab = torch.load(opt.new_vocab)
+
+    if opt.use_lang is not None:
+        vocab = checkpoint['vocab']
+        tgt_vocab = vocab['tgt'].base_field.vocab
+        counter = tgt_vocab.freqs
+
+        embedding_key = '{}.embeddings.make_embedding.emb_luts.0.0.weight'
+        tgt_vectors = checkpoint['model'][embedding_key.format('decoder')]
+
+        lang_prefix = opt.use_lang + '@'
+        new_ctr  = {s: freq for s, freq in counter.items() if s.startswith(lang_prefix)}
+        specials = {s: freq for s, freq in counter.items() if '@' not in s}
+        new_ctr.update(specials)
+
+        new_stoi = {s: tgt_vocab.stoi[s] for s in new_ctr}
+        new_vocab = Vocab(new_ctr, specials=tgt_vocab.itos[:4])
+        new_vocab.set_vectors(new_stoi, tgt_vectors, dim=tgt_vectors.size(1))
+
+        vocab['tgt'].base_field.vocab = new_vocab
+
+    if opt.new_vocab is not None or opt.use_lang is not None:
+        if opt.use_lang is not None:
+            vocab = checkpoint['vocab']
+        else:
+            vocab_old = checkpoint['vocab']
+            vocab = torch.load(opt.new_vocab)
 
         # print(dict(vocab_old)["tgt"].fields[1][1].vocab.itos)
         # print(dict(vocab)["tgt"].fields[1][1].vocab.itos)
