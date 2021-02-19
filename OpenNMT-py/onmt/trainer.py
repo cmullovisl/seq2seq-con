@@ -313,7 +313,7 @@ class Trainer(object):
         for i in range(l.size(0)):
             # generate a random permutation
             #scores = np.arange(l.cpu()[i] - 1) + noise[:l.cpu()[i] - 1, i]
-            scores = torch.arange(l[i] - 1, device=x.device) + noise[:l[i] - 1, i]
+            scores = torch.arange(l[i] - 1, device=x.device).to(noise.dtype) + noise[:l[i] - 1, i]
             permutation = scores.argsort()
             # shuffle words
             #x2[:l[i] - 1, i].copy_(x2[:l[i] - 1, i][torch.from_numpy(permutation).cuda()])
