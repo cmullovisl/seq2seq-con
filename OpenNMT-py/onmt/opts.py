@@ -227,6 +227,10 @@ def model_opts(parser):
                    "synchronize embedding weights with decoder embeddings"
                    "after each optimizer step. Requires continuous output"
                    "generator function.")
+    group.add('--freeze_encoder', '-freeze_encoder', action="store_true",
+              help="Freeze the encoder parameters in training.")
+    group.add('--freeze_decoder', '-freeze_decoder', action="store_true",
+              help="Freeze the decoder parameters in training.")
 
 
 def preprocess_opts(parser):

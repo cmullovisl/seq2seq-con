@@ -135,10 +135,12 @@ def main(opt, device_id, batch_queue=None, semaphore=None):
                 p.requires_grad = False
         opt.reset_optim=True
 
-    #for param in model.encoder.parameters():
-    #    param.requires_grad = False
-    #for param in model.decoder.parameters():
-    #    param.requires_grad = False
+    if opt.freeze_encoder:
+        for param in model.encoder.parameters():
+            param.requires_grad = False
+    if opt.freeze_decoder:
+        for param in model.decoder.parameters():
+            param.requires_grad = False
     
     optim = Optimizer.from_opt(model, opt, checkpoint=checkpoint)
 
