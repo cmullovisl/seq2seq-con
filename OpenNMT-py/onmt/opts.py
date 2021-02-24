@@ -58,6 +58,11 @@ def model_opts(parser):
               help="If -feat_merge_size is not set, feature "
                    "embedding sizes will be set to N^feat_vec_exponent "
                    "where N is the number of values the feature takes.")
+    group.add('--detached_embeddings', '-detached_embeddings',
+              action='store_true',
+              help="Store embedding vectors in a separate file instead "
+                   "of the model file. Requires the embeddings to be "
+                   "specified for model loadding.")
 
     # Encoder-Decoder Options
     group = parser.add_argument_group('Model- Encoder-Decoder')

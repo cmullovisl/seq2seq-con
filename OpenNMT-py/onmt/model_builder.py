@@ -414,6 +414,13 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     model.to(device)
     if model_opt.model_dtype == 'fp16' and model_opt.optim == 'fusedadam':
         model.half()
+
+    if model_opt.detached_embeddings:
+        for field in [src_field, tgt_field]:
+            for _, f in field:
+                if f.use_vocab:
+                    f.vocab.vectors = None
+
     return model
 
 

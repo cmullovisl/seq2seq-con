@@ -104,6 +104,29 @@ class ModelSaver(ModelSaverBase):
         model_state_dict = {k: v for k, v in model_state_dict.items()
                             if 'generator' not in k}
         generator_state_dict = model.generator.state_dict()
+        optim_state_dict = self.optim.state_dict(),
+
+        if self.model_opt.detached_embeddings:
+            embedding_key = '{}.embeddings.make_embedding.emb_luts.0.0.weight'
+            # FIXME do properly
+            tgt_special_vecs = model_state_dict[embedding_key.format('decoder')][:32].clone()
+            model_state_dict[embedding_key.format('decoder')] = tgt_special_vecs
+
+            if self.model_opt.share_decoder_embeddings:
+                model_state_dict[embedding_key.format('encoder')] = tgt_special_vecs
+            else:
+                src_special_vecs = model_state_dict[embedding_key.format('encoder')][:32].clone()
+                model_state_dict[embedding_key.format('encoder')] = src_special_vecs
+
+            if 'continuous' in self.model_opt.generator_function:
+                model_state_dict['decoder.tgt_out_emb.weight'] = tgt_special_vecs
+            elif self.model_opt.share_decoder_embeddings:
+                generator_state_dict['weight.0'] = tgt_special_vecs
+
+        if self.model_opt.reset_optim == 'all':
+            optim_state_dict = None
+        elif self.model_opt.reset_optim == 'states':
+            del optim_state_dict['optimizer']
 
         mtl_generator_state_dict = None
         if model.mtl_generator is not None:
@@ -129,7 +152,7 @@ class ModelSaver(ModelSaverBase):
             'mtl_generator': mtl_generator_state_dict,
             'vocab': vocab,
             'opt': self.model_opt,
-            'optim': self.optim.state_dict(),
+            'optim': optim_state_dict,
         }
 
         if self.only_sec:
