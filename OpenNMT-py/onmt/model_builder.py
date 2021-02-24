@@ -20,6 +20,8 @@ from onmt.utils.misc import use_gpu
 from onmt.utils.logging import logger
 from onmt.utils.parse import ArgumentParser
 
+from onmt.utils.vocab.util import vec_to_vocab
+
 
 def build_embeddings(opt, text_field, for_encoder=True):
     """
@@ -160,6 +162,42 @@ def build_generator(model, opt, fields, output_vec_dim=-1):
 #     print(v1tgt)
 #     input()
 
+def load_vocab(vocab, checkpoint, opt, model_opt, vocab_old=None):
+    tgt_vecs = vocab['tgt'].base_field.vocab.vectors
+    src_vecs = vocab['src'].base_field.vocab.vectors
+    embedding_key = '{}.embeddings.make_embedding.emb_luts.0.0.weight'
+    if model_opt.share_decoder_embeddings:
+        checkpoint['model'][embedding_key.format('decoder')] = tgt_vecs
+
+    if src_vecs is not None:
+        checkpoint['model'][embedding_key.format('encoder')] = src_vecs
+
+    if "continuous" not in model_opt.generator_function:
+        checkpoint['generator']['0.weight'] = tgt_vecs
+
+        # handle bias: 3 variants
+        old_bias = checkpoint['generator']['0.bias']
+        # variant 1: zero-bias except for specials
+        #N_SPECIALS = 4
+        #special_bias = old_bias[:N_SPECIALS]
+        #new_bias = torch.zeros(len(tgt_vecs))
+        #new_bias[:N_SPECIALS] += special_bias
+        #checkpoint['generator']['0.bias'] = new_bias
+
+        # variant 2: delete bias
+        #del checkpoint['generator']['0.bias']
+
+        # variant 3: isolate bias relevant to current language
+        lang_prefix = opt.langcode + '@'
+        bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix) or '@' not in s]
+        #bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix)]
+        #bias_idxs = [0,1,2,3] + bias_idxs
+        new_bias = old_bias[bias_idxs]
+        checkpoint['generator']['0.bias'] = new_bias
+
+    if model_opt.share_embeddings:
+        model_opt.share_embeddings = False
+
 def load_test_model(opt, model_path=None):
     if model_path is None:
         model_path = opt.models[0]
@@ -189,51 +227,35 @@ def load_test_model(opt, model_path=None):
 
         vocab['tgt'].base_field.vocab = new_vocab
 
-    if opt.new_vocab is not None or opt.use_lang is not None:
-        if opt.use_lang is not None:
-            vocab = checkpoint['vocab']
-        else:
-            vocab_old = checkpoint['vocab']
-            vocab = torch.load(opt.new_vocab)
+        load_vocab(vocab, checkpoint, opt, model_opt)
 
-        # print(dict(vocab_old)["tgt"].fields[1][1].vocab.itos)
-        # print(dict(vocab)["tgt"].fields[1][1].vocab.itos)
-        # compare_vocab(vocab, vocab_old)
+    if opt.new_vocab is not None:
+        vocab_old = checkpoint['vocab']
+        vocab = torch.load(opt.new_vocab)
+        load_vocab(vocab, checkpoint, opt, model_opt, vocab_old=vocab_old)
 
-        tgt_vecs = vocab['tgt'].base_field.vocab.vectors
-        src_vecs = vocab['src'].base_field.vocab.vectors
-        embedding_key = '{}.embeddings.make_embedding.emb_luts.0.0.weight'
-        if model_opt.share_decoder_embeddings:
-            checkpoint['model'][embedding_key.format('decoder')] = tgt_vecs
+    elif opt.tgt_embeddings or opt.src_embeddings:
+        # XXX what about non-shared decoder embeddings?
+        vocab = checkpoint['vocab']
 
-        if src_vecs is not None:
-            checkpoint['model'][embedding_key.format('encoder')] = src_vecs
+        def _set_vocab_from_embeddings(side, embeddings, vocab):
+            # extract specials vectors from encoder/decoder, create specials
+            # vocab, create vocab from .vec file
+            specials_vocab = vocab[side].base_field.vocab
+            embedding_key = '{}.embeddings.make_embedding.emb_luts.0.0.weight'.format(
+                    'encoder' if side == 'src' else 'decoder')
+            special_vectors = checkpoint['model'][embedding_key]
+            specials_vocab.vectors = special_vectors
+            new_vocab = vec_to_vocab(embeddings, specials_vocab)
+            vocab[side].base_field.vocab = new_vocab
 
-        if "continuous" not in model_opt.generator_function:
-            checkpoint['generator']['0.weight'] = tgt_vecs
+        if opt.src_embeddings:
+            _set_vocab_from_embeddings('src', opt.src_embeddings, vocab)
+        if opt.tgt_embeddings:
+            _set_vocab_from_embeddings('tgt', opt.tgt_embeddings, vocab)
 
-            # handle bias: 3 variants
-            old_bias = checkpoint['generator']['0.bias']
-            # variant 1: zero-bias except for specials
-            #N_SPECIALS = 4
-            #special_bias = old_bias[:N_SPECIALS]
-            #new_bias = torch.zeros(len(tgt_vecs))
-            #new_bias[:N_SPECIALS] += special_bias
-            #checkpoint['generator']['0.bias'] = new_bias
+        load_vocab(vocab, checkpoint, opt, model_opt)
 
-            # variant 2: delete bias
-            #del checkpoint['generator']['0.bias']
-
-            # variant 3: isolate bias relevant to current language
-            lang_prefix = opt.langcode + '@'
-            bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix) or '@' not in s]
-            #bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix)]
-            #bias_idxs = [0,1,2,3] + bias_idxs
-            new_bias = old_bias[bias_idxs]
-            checkpoint['generator']['0.bias'] = new_bias
-
-        if model_opt.share_embeddings:
-            model_opt.share_embeddings = False
     else:
         vocab = checkpoint['vocab']
     if inputters.old_style_vocab(vocab):

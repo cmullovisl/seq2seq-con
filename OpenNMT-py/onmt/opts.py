@@ -643,7 +643,13 @@ def translate_opts(parser):
                    "for ensemble decoding.")
     group.add('--new_vocab', '-new_vocab', dest='new_vocab',
               type=str, default=None,
-              help="Path to a new (optional) vocab .pt file. ")
+              help="Path to a new (optional) vocab .pt file.")
+    group.add('--src_embeddings', '-src_embeddings',
+              type=str, default=None,
+              help="Path to a new encoder embeddings .vec file.")
+    group.add('--tgt_embeddings', '-tgt_embeddings',
+              type=str, default=None,
+              help="Path to a new decoder embeddings .vec file.")
     group.add('--use_lang', '-use_lang', type=str, default=None,
               help="Single language to isolate from multilingual "
                    "vocabulary.")
