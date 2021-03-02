@@ -223,7 +223,7 @@ class Embeddings(nn.Module):
                               "feat_vec_size. It will be unused.")
         elif feat_vec_size > 0:
             # features will use feat_vec_size
-            if feat_vec_exponent != -1:
+            if feat_vec_exponent != 0.7:
                 warnings.warn("Not merging with sum and positive "
                               "feat_vec_size, but got non-default "
                               "feat_vec_exponent. It will be unused.")
