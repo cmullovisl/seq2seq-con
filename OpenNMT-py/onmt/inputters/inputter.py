@@ -417,7 +417,7 @@ def _build_field_vocab(field, counter, size_multiple=1, emb_file=None, base_fiel
     else:
         field.vocab = field.vocab_cls(counter, specials=specials, **kwargs)
     
-    if fv_counter is not None:
+    if fv_counter is not None and False:
         f2v = torch.zeros(len(base_field.vocab), len(field.vocab))
         f2v[base_field.vocab.stoi[base_field.init_token]][field.vocab.stoi[base_field.init_token]] = 1.
         f2v[base_field.vocab.stoi[base_field.pad_token]][field.vocab.stoi[base_field.pad_token]] = 1.

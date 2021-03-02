@@ -118,6 +118,8 @@ def main(opt, device_id, batch_queue=None, semaphore=None):
             f_iter = [(side, f)]
         for sn, sf in f_iter:
             if sf.use_vocab:
+                if not getattr(sf, 'vocab', None):
+                    sf.vocab = fields['tgt'].fields[1][1].vocab
                 logger.info(' * %s vocab size = %d' % (sn, len(sf.vocab)))
 
     # Build model.

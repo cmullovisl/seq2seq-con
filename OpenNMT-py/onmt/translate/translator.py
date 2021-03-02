@@ -145,7 +145,8 @@ class Translator(object):
             pos_topk=1,
             usenew=False,
             proxy_beam=False,
-            use_feat_emb=False):
+            use_feat_emb=False,
+            target_language=None):
         self.model = model
         self.fields = fields
 
@@ -179,6 +180,10 @@ class Translator(object):
         elif self.multi_task:   
             logger.info("multi-task was set but secondary task field doesn't exist in the data, ignoring multi-task")
             self.multi_task = False
+        elif len(tgt_fields.fields) > 1:
+            sec_tgt_field = tgt_fields.fields[1][1]
+            self._sec_tgt_vocab = sec_tgt_field.vocab
+            self._sec_tgt_bos_idx = self._sec_tgt_vocab.stoi[target_language]
 
         self.n_best = n_best
         self.max_length = max_length
@@ -313,7 +318,8 @@ class Translator(object):
             pos_topk=opt.pos_topk,
             usenew=opt.usenew,
             proxy_beam=opt.proxy_beam,
-            use_feat_emb=model_opt.use_feat_emb)
+            use_feat_emb=model_opt.use_feat_emb,
+            target_language=opt.target_language)
 
     def _log(self, msg):
         if self.logger:
@@ -643,6 +649,7 @@ class Translator(object):
                     exclusion_tokens=self._exclusion_idxs,
                     stepwise_penalty=self.stepwise_penalty,
                     ratio=self.ratio,
+                    sec_bos=self._sec_tgt_bos_idx,
                     use_feat_emb=self.use_feat_emb)
             return self._translate_batch_with_strategy(batch, src_vocabs,
                                                        decode_strategy)

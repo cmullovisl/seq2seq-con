@@ -676,6 +676,10 @@ def translate_opts(parser):
     group.add('--decode_loss', '-decode_loss', default='cosine',
               help="In case of conmt, what distance function to use for"
                    "computing nearest neighbors")
+    group.add('--target_language', '-target_language', default=None,
+              help="Selects the target language in case of multilingual NMT. "
+                   "This forces the target feature corresponding to that "
+                   "language for every decoded word.")
 
     group = parser.add_argument_group('Data')
     group.add('--data_type', '-data_type', default="text",

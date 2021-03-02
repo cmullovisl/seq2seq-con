@@ -58,11 +58,11 @@ class BeamSearch(DecodeStrategy):
     def __init__(self, beam_size, batch_size, pad, bos, eos, n_best,
                  global_scorer, min_length, max_length, return_attention,
                  block_ngram_repeat, exclusion_tokens,
-                 stepwise_penalty, ratio, pos_topk=1, multi_task=False, use_feat_emb=False):
+                 stepwise_penalty, ratio, pos_topk=1, sec_bos=None, multi_task=False, use_feat_emb=False):
         super(BeamSearch, self).__init__(
             pad, bos, eos, batch_size, beam_size, min_length,
             block_ngram_repeat, exclusion_tokens, return_attention,
-            max_length, use_feat_emb=use_feat_emb, multi_task=multi_task)
+            max_length, sec_bos, use_feat_emb=use_feat_emb, multi_task=multi_task)
         # beam parameters
         self.global_scorer = global_scorer
         self.beam_size = beam_size
@@ -327,6 +327,9 @@ class BeamSearch(DecodeStrategy):
                 if self._stepwise_cov_pen:
                     self._prev_penalty = self._prev_penalty.index_select(
                         0, non_finished)
+
+        if self.use_feat_emb and not self.multi_task:
+            self.alive_sec_seq = self.alive_sec_seq[:len(self.alive_seq)]
 
 
 class GNMTGlobalScorer(object):

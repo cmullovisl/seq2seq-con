@@ -500,6 +500,14 @@ class Trainer(object):
 
             tgt_outer = batch.tgt
 
+            # overwrite the feature embeddings BOS token with the target
+            # language token (at position 1) in case of multilingual training
+            # with features
+            if self.use_feat_emb:
+                seq_dim = 0 # if not batch_first else 1
+                assert(tgt_outer.size(seq_dim) > 1)
+                tgt_outer[0, :, 1] = tgt_outer[1, :, 1]
+
             bptt = False
             for j in range(0, target_size-1, trunc_size):
                 # 1. Create truncated target.

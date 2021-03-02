@@ -105,7 +105,7 @@ class DecodeStrategy(object):
         self.is_finished = torch.zeros(
             [self.batch_size, self.parallel_paths],
             dtype=torch.uint8, device=device)
-        if self.multi_task:
+        if self.multi_task or self.sec_bos != -1:
             self.alive_sec_seq = torch.full(
                 [self.batch_size * self.parallel_paths, 1], self.sec_bos,
                 dtype=torch.long, device=device)
