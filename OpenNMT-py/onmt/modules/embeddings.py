@@ -268,7 +268,7 @@ class Embeddings(nn.Module):
     
     def tie_embeddings(self, tgt_out_vec, train=False):
         #tie the embeddings with the output vectors and freeze them
-        self.word_lut.weight.data.copy_(tgt_out_vec.data)
+        self.word_lut.weight.data = tgt_out_vec.data.detach()
         self.word_lut.weight.requires_grad = train
 
     def forward(self, source, step=None):

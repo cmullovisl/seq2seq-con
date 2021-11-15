@@ -328,7 +328,12 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     output_vec_dim = -1
     if "continuous" in model_opt.generator_function:
         #make target embeddings
-        tgt_out_vectors = tgt_field.base_field.vocab.vectors 
+        if model_opt.share_decoder_embeddings and model_opt.pre_word_vecs_dec:
+            # TODO properly implement
+            tgt_out_vectors = src_emb.word_lut.weight
+            assert(False)
+        else:
+            tgt_out_vectors = tgt_field.base_field.vocab.vectors
         if model_opt.center:
             center_emb = tgt_out_vectors.sum(dim=0, keepdim=True) / (tgt_out_vectors.size(0))
             tgt_out_vectors = tgt_out_vectors - center_emb
@@ -407,13 +412,15 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     model.mtl_generator = mtl_generator
     if "continuous" in model_opt.generator_function:
         model.decoder.tgt_out_emb = tgt_out_emb
-        if model_opt.share_decoder_embeddings:
-            model.decoder.embeddings.tie_embeddings(tgt_out_emb.weight,
-                model_opt.sync_output_embeddings)
 
     model.to(device)
     if model_opt.model_dtype == 'fp16' and model_opt.optim == 'fusedadam':
         model.half()
+
+    if ("continuous" in model_opt.generator_function
+            and model_opt.share_decoder_embeddings):
+        model.decoder.embeddings.tie_embeddings(tgt_out_emb.weight,
+            model_opt.sync_output_embeddings)
 
     if model_opt.detached_embeddings:
         for field in [src_field, tgt_field]:
