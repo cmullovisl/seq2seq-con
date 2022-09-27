@@ -5,7 +5,7 @@ import torch
 from onmt.inputters.text_dataset import TextMultiField
 from onmt.utils.alignment import build_align_pharaoh
 
-from collections import Iterable
+from collections.abc import Iterable
 
 
 class TranslationBuilder(object):

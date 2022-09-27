@@ -479,67 +479,68 @@ class Trainer(object):
             self.optim.zero_grad()
 
         for k, batch in enumerate(true_batches):
-            target_size = batch.tgt.size(0)
-            # Truncated BPTT: reminder not compatible with accum > 1
-            if self.trunc_size:
-                trunc_size = self.trunc_size
-            else:
-                trunc_size = target_size
-
-            src, src_lengths = batch.src if isinstance(batch.src, tuple) \
-                else (batch.src, None)
-
-            if self.denoise:
-                src, src_lengths = self.add_noise(src, src_lengths)
-
-            if src_lengths is not None:
-                report_stats.n_src_words += src_lengths.sum().item()
-
-            tgt_outer = batch.tgt
-
-            # overwrite the feature embeddings BOS token with the target
-            # language token (at position 1) in case of multilingual training
-            # with features
-            if self.use_feat_emb:
-                seq_dim = 0 # if not batch_first else 1
-                assert(tgt_outer.size(seq_dim) > 1)
-                tgt_outer[0, :, 1] = tgt_outer[1, :, 1]
-
-            bptt = False
-            for j in range(0, target_size-1, trunc_size):
-                # 1. Create truncated target.
-                if self.use_feat_emb:
-                    tgt = tgt_outer[j: j + trunc_size]
+            with torch.autocast('cuda'):
+                target_size = batch.tgt.size(0)
+                # Truncated BPTT: reminder not compatible with accum > 1
+                if self.trunc_size:
+                    trunc_size = self.trunc_size
                 else:
-                    tgt = tgt_outer[j: j + trunc_size, :, :1]
-                # 2. F-prop all but generator.
-                if self.accum_count == 1:
-                    self.optim.zero_grad()
+                    trunc_size = target_size
 
-                outputs, attns = self.model(src, tgt, src_lengths, bptt=bptt,
-                                            with_align=self.with_align)
-                bptt = True
-                # 3. Compute loss.
-                try:
-                    loss, batch_stats = self.train_loss(
-                        batch,
-                        outputs,
-                        attns,
-                        normalization=normalization,
-                        shard_size=self.shard_size,
-                        trunc_start=j,
-                        trunc_size=trunc_size)
+                src, src_lengths = batch.src if isinstance(batch.src, tuple) \
+                    else (batch.src, None)
 
-                    if loss is not None:
-                        self.optim.backward(loss)
+                if self.denoise:
+                    src, src_lengths = self.add_noise(src, src_lengths)
 
-                    total_stats.update(batch_stats)
-                    report_stats.update(batch_stats)
+                if src_lengths is not None:
+                    report_stats.n_src_words += src_lengths.sum().item()
 
-                except Exception:
-                    traceback.print_exc()
-                    logger.info("At step %d, we removed a batch - accum %d",
-                                self.optim.training_step, k)
+                tgt_outer = batch.tgt
+
+                # overwrite the feature embeddings BOS token with the target
+                # language token (at position 1) in case of multilingual training
+                # with features
+                if self.use_feat_emb:
+                    seq_dim = 0 # if not batch_first else 1
+                    assert(tgt_outer.size(seq_dim) > 1)
+                    tgt_outer[0, :, 1] = tgt_outer[1, :, 1]
+
+                bptt = False
+                for j in range(0, target_size-1, trunc_size):
+                    # 1. Create truncated target.
+                    if self.use_feat_emb:
+                        tgt = tgt_outer[j: j + trunc_size]
+                    else:
+                        tgt = tgt_outer[j: j + trunc_size, :, :1]
+                    # 2. F-prop all but generator.
+                    if self.accum_count == 1:
+                        self.optim.zero_grad()
+
+                    outputs, attns = self.model(src, tgt, src_lengths, bptt=bptt,
+                                                with_align=self.with_align)
+                    bptt = True
+                    # 3. Compute loss.
+                    try:
+                        loss, batch_stats = self.train_loss(
+                            batch,
+                            outputs,
+                            attns,
+                            normalization=normalization,
+                            shard_size=self.shard_size,
+                            trunc_start=j,
+                            trunc_size=trunc_size)
+
+                        if loss is not None:
+                            self.optim.backward(loss)
+
+                        total_stats.update(batch_stats)
+                        report_stats.update(batch_stats)
+
+                    except Exception:
+                        traceback.print_exc()
+                        logger.info("At step %d, we removed a batch - accum %d",
+                                    self.optim.training_step, k)
 
                 # 4. Update the parameters and statistics.
                 if self.accum_count == 1:
