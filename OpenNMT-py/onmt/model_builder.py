@@ -20,7 +20,7 @@ from onmt.utils.misc import use_gpu
 from onmt.utils.logging import logger
 from onmt.utils.parse import ArgumentParser
 
-from onmt.utils.vocab.util import vec_to_vocab
+from onmt_vocab_utils.util import vec_to_vocab
 
 
 def build_embeddings(opt, text_field, for_encoder=True):
