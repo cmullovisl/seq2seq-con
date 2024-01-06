@@ -12,6 +12,7 @@
 import torch
 import numpy as np
 import traceback
+from contextlib import nullcontext
 
 import onmt.utils
 from onmt.utils.logging import logger
@@ -479,7 +480,7 @@ class Trainer(object):
             self.optim.zero_grad()
 
         for k, batch in enumerate(true_batches):
-            with torch.autocast('cuda'):
+            with torch.autocast('cuda') if self.model_dtype == 'fp16' else nullcontext():
                 target_size = batch.tgt.size(0)
                 # Truncated BPTT: reminder not compatible with accum > 1
                 if self.trunc_size:
