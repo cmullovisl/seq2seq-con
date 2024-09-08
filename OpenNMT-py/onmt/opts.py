@@ -236,6 +236,9 @@ def model_opts(parser):
               help="Freeze the encoder parameters in training.")
     group.add('--freeze_decoder', '-freeze_decoder', action="store_true",
               help="Freeze the decoder parameters in training.")
+    group.add("--no_generator_bias", "-no_generator_bias", action="store_true",
+              help="No bias in generator projection layer")
+
 
 
 def preprocess_opts(parser):

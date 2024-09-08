@@ -125,7 +125,7 @@ def build_generator(model, opt, fields, output_vec_dim=-1):
                 gen_func = nn.LogSoftmax(dim=-1)
             generator = nn.Sequential(
                 nn.Linear(opt.dec_rnn_size,
-                        len(fields["tgt"].base_field.vocab)),
+                        len(fields["tgt"].base_field.vocab), bias=not opt.no_generator_bias),
                 Cast(torch.float32),
                 gen_func
             )
@@ -175,25 +175,26 @@ def load_vocab(vocab, checkpoint, opt, model_opt, vocab_old=None):
     if "continuous" not in model_opt.generator_function:
         checkpoint['generator']['0.weight'] = tgt_vecs
 
-        # handle bias: 3 variants
-        old_bias = checkpoint['generator']['0.bias']
-        # variant 1: zero-bias except for specials
-        #N_SPECIALS = 4
-        #special_bias = old_bias[:N_SPECIALS]
-        #new_bias = torch.zeros(len(tgt_vecs))
-        #new_bias[:N_SPECIALS] += special_bias
-        #checkpoint['generator']['0.bias'] = new_bias
+        if not model_opt.no_generator_bias:
+            # handle bias: 3 variants
+            old_bias = checkpoint['generator']['0.bias']
+            # variant 1: zero-bias except for specials
+            #N_SPECIALS = 4
+            #special_bias = old_bias[:N_SPECIALS]
+            #new_bias = torch.zeros(len(tgt_vecs))
+            #new_bias[:N_SPECIALS] += special_bias
+            #checkpoint['generator']['0.bias'] = new_bias
 
-        # variant 2: delete bias
-        #del checkpoint['generator']['0.bias']
+            # variant 2: delete bias
+            #del checkpoint['generator']['0.bias']
 
-        # variant 3: isolate bias relevant to current language
-        lang_prefix = opt.langcode + '@'
-        bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix) or '@' not in s]
-        #bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix)]
-        #bias_idxs = [0,1,2,3] + bias_idxs
-        new_bias = old_bias[bias_idxs]
-        checkpoint['generator']['0.bias'] = new_bias
+            # variant 3: isolate bias relevant to current language
+            lang_prefix = opt.langcode + '@'
+            bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix) or '@' not in s]
+            #bias_idxs  = [i for i, s in enumerate(vocab_old['tgt'].base_field.vocab.itos) if s.startswith(lang_prefix)]
+            #bias_idxs = [0,1,2,3] + bias_idxs
+            new_bias = old_bias[bias_idxs]
+            checkpoint['generator']['0.bias'] = new_bias
 
     if model_opt.share_embeddings:
         model_opt.share_embeddings = False
